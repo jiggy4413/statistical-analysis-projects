@@ -1,0 +1,292 @@
+---
+format:
+  pdf:
+    fig-pos: 'h!'
+execute:
+  echo: true
+  cache: false
+  error: true
+  fig-height: 2.75
+knitr:
+  opts_chunk: 
+    fig-format: pdf
+    collapse: true
+    comment: "#"
+---
+
+JIMV
+
+Apple Stock Price - Analysis
+\begin{center}
+Homework 7
+\end{center}
+
+
+## Load required packages
+
+This document uses the following R packages and environment setup.
+
+```{r packages}
+#| echo: true
+#| message: false
+library("tidyverse"); library("patchwork");library("dplyr");library("ggplot2")
+library("scales"); library("glue");library("janitor");library("stringr")
+library("mall");library("hms");library("tidyquant");library("fs")
+theme_set(theme_minimal())
+theme_update(panel.grid.minor = element_blank())
+```
+
+<!-- below is how you put in a page break -->
+
+\newpage
+
+## Question 1
+
+```{r q1}
+(AAPL <- tq_get("AAPL", get = "stock.prices", from = "2015-01-01"))
+```
+\newpage
+
+### 1. a.
+
+```{r q1-a}
+AAPL_with_dttm <- AAPL |>
+  mutate(
+    "dttm" = as_datetime(date)
+  )
+AAPL_with_dttm |>
+  filter(date >= today() - dweeks(12)) |>
+  ggplot(aes(dttm)) +
+  geom_linerange(aes(ymin = low, ymax = pmin(close, open)), color = "gray") +
+  geom_linerange(aes(ymin = pmax(close, open), ymax = high), color = "gray") +
+  geom_rect(
+    aes(
+      xmin = dttm - dhours(10), xmax = dttm + dhours(10),
+      ymin = pmin(close, open), ymax = pmax(close, open),
+      fill = close >= open
+    ),
+    alpha = 0.80
+  ) +
+  scale_fill_manual(
+    breaks = c(FALSE,TRUE),
+    values = c("firebrick", "forestgreen"),
+    guide = "none"
+  ) +
+  scale_x_datetime(date_breaks = "1 weeks", date_labels = "%b %d") +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  labs(title = "Daily movement in AAPL share price over the past twelve weeks") +
+  theme_minimal(base_size = 10) + 
+  theme(
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_blank()
+  )
+```
+\newpage
+
+### 1. b.
+
+```{r q1-b}
+AAPL_by_week <- AAPL |>
+  filter(year(date) == year(today())) |>
+  group_by( week = week(date) ) |>
+  arrange(date) |>
+  summarize(
+    date = date[1],
+    open = open[1],
+    close = close[n()],
+    high = max(high),
+    low = min(low)
+  ) |>
+  ungroup()
+AAPL_by_week
+```
+\newpage
+
+### 1. c.
+
+```{r q1-c}
+AAPL_by_week_with_dttm <- AAPL_by_week |>
+  mutate(
+    "dttm" = as_datetime(date)
+  )
+AAPL_by_week_with_dttm |>
+  ggplot(aes(dttm)) +
+  geom_linerange(aes(ymin = low, ymax = pmin(close, open)), color = "gray") +
+  geom_linerange(aes(ymin = pmax(close, open), ymax = high), color = "gray") +
+  geom_rect(
+    aes(
+      xmin = dttm - ddays(2), xmax = dttm + ddays(2),
+      ymin = pmin(close, open), ymax = pmax(close, open),
+      fill = close >= open
+    ),
+    alpha = 0.80
+  ) +
+  scale_fill_manual(
+    breaks = c(FALSE, TRUE),
+    values = c("firebrick", "forestgreen"),
+    guide = "none"
+  ) +
+  scale_x_datetime(date_breaks = "1 months", date_labels = "%b %d") +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  labs(title = "Weekly movement in AAPL share price during the current year") +
+  theme_minimal(base_size = 10) + 
+  theme(
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_blank()
+  )
+```
+For question 1.c. I used ChatGPT5 to help me adapt the code from part 1.a. to fit the requirements and utilize to the data from part 1.b. to creat the graphic.
+\newpage
+
+### 1. d.
+
+```{r q1-d}
+AAPL_by_quarter <- AAPL |>
+  group_by(
+    year = year(date),
+    quarter = quarter(date)
+  ) |>
+  arrange(date, .by_group = TRUE) |>
+  summarize(
+    date = first(date),
+    open = first(open),
+    close = last(close),
+    high = max(high),
+    low = min(low),
+  ) |>
+  mutate(
+    dttm = as_datetime(date)
+  ) |>
+  ungroup()
+
+ggplot(AAPL_by_quarter, aes(dttm)) +
+  geom_linerange(aes(ymin = low, ymax = pmin(close, open)), color = "gray") +
+  geom_linerange(aes(ymin = pmax(close, open), ymax = high), color = "gray") +
+  geom_rect(
+    aes(
+      xmin = dttm - dmonths(1),
+      xmax = dttm + dmonths(1),
+      ymin = pmin(close, open),
+      ymax = pmax(close, open),
+      fill = close >= open
+    ),
+    alpha = 0.80
+  ) +
+  scale_fill_manual(
+    breaks = c(FALSE, TRUE),
+    values = c("firebrick", "forestgreen"),
+    guide = "none"
+  ) +
+  scale_x_datetime(date_breaks = "1 years", date_labels = "%Y") +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  labs(
+    title = "Quarterly movement in AAPL share price since 2015",
+    x = NULL
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(
+    panel.grid.minor = element_blank()
+  )
+```
+\newpage
+
+### 1. e.
+
+```{r q1-e}
+if ( fs::file_exists("SP500.rds") ) {
+  SP500 <- read_rds("SP500.rds"); SP500_prices <- read_rds("SP500_prices.rds")
+} else {
+  SP500 <- tq_index("SP500"); write_rds(SP500, "SP500.rds")
+  SP500_prices <- SP500 |> tq_get(get = "stock.prices", from = "2010-01-01")
+  write_rds(SP500_prices, "SP500_prices.rds")}
+SP500
+
+SP500_prices
+```
+\newpage
+
+### 1. f.
+
+```{r q1-f}
+n_new <- SP500_prices |>
+  summarize( first_day = min(date), .by = symbol) |>
+  filter(first_day > mdy("Jan 4, 2010")) |>
+  nrow()
+n_total <- SP500_prices |>
+  summarize( first_day = min(date), .by = symbol) |>
+  nrow()
+proportion <- n_new / n_total * 100
+
+proportion
+```
+\newpage
+
+### 1. g.
+
+```{r q1-g}
+SP500_prices |>
+  count(symbol)
+```
+\newpage
+
+### 1. h.
+
+```{r q1-h}
+five_years_ago_trading_date <- today() - years(5)
+
+seasoned_companies <- SP500_prices |>
+  group_by(symbol) |>
+  summarize(
+    first_date = min(date),
+    last_date  = max(date),
+  ) |>
+  filter(
+    first_date <= five_years_ago_trading_date,
+    last_date  >= five_years_ago_trading_date
+  ) |>
+  pull(symbol)
+
+sp_last_five_years <- SP500_prices |>
+  filter(
+    symbol %in% seasoned_companies,
+    date >= five_years_ago_trading_date
+  )
+sp_last_five_years |> glimpse()
+```
+For question 1.h. ChatGPT5 helped me with creating seasoned_companies, and sp_last_five_years. Mainly with setting up filter and summarize in seasoned_companies, and with setting up filter in sp_last_five_years.
+\newpage
+
+### 1. i.
+
+```{r q1-i}
+sp_last_five_years_returns <- sp_last_five_years |>
+  arrange(symbol, date) |>
+  group_by(symbol) |>
+  mutate(
+    start_price = first(close),
+    net_return = (close - start_price) / start_price
+  ) |>
+ggplot(sp_last_five_years_returns, aes(x = date, y = net_return, group = symbol)) +
+  geom_line(alpha = 0.4) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  labs(
+    title = "Net returns over the last five years",
+    x = NULL,
+    y = "Net return since start date"
+  ) +
+  theme_minimal()
+```
+For question 1.i. I used ChatGPT5 to help me create and format sp_last_five_years_returns, after that creating the graphic was simple enough by looking over the code provided in class for other parts. 
+\newpage
+
+### 1. j.
+
+```{r q1-j}
+sp_last_five_years_returns |>
+  group_by(symbol) |>
+  summarize(final_return = last(net_return)) |>
+  slice_max(final_return)
+```
+NVIDIA has had the greatest return over the last five years.
+
+For this question, I used ChatGPT5 to help me find the most efficient way to find the highest return after grouping by symbol. Slice_max where recommended. Slice_max in particular was a great option because it allowed to select row with highest value.

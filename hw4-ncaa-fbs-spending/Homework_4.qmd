@@ -1,0 +1,192 @@
+---
+format:
+  pdf:
+    fig-pos: 'h!'
+execute:
+  echo: true
+  cache: false
+  error: true
+  fig-height: 2.75
+knitr:
+  opts_chunk: 
+    fig-format: pdf
+    collapse: true
+    comment: "#"
+---
+
+JIMV
+
+NCAA FBS Division I - Analysis
+
+\begin{center}
+Homework 4
+\end{center}
+
+## Load required packages
+
+This document uses the following R packages and environment setup.
+
+```{r packages}
+#| echo: true
+#| message: false
+#| fig-height: 3
+library("tidyverse"); library("patchwork"); library("ggplot2")
+library("scales"); library("glue"); library("tibble");library("tidyquant");
+library(tidytuesdayR); tuesdata <- tidytuesdayR::tt_load(2022, week = 13)
+theme_set(theme_minimal())
+theme_update(panel.grid.minor = element_blank())
+```
+
+<!-- below is how you put in a page break -->
+
+\newpage
+
+## Question 1
+
+### 1. a.
+
+```{r q1-a}
+sports <- tuesdata$sports |> 
+  tibble()
+sports |> glimpse()
+```
+The dataset contains 132,327 observations and 28 variables. Each observation represents a college athletic team (by school, year, paticipants, and sport).
+\newpage
+
+### 1. b.
+
+```{r q1-b}
+sports |> ggplot(aes(exp_men)) +
+  geom_histogram(boundary = 0, bins = 150, color = "white", na.rm = TRUE) +
+  scale_x_log10(
+    labels = c("$1k","$10k","$100k","$1mil","$10mil","$100mil"),
+    breaks = 10^(3:8)
+  ) +
+  scale_y_continuous(labels = label_comma(), n.breaks = 10) +
+  labs(
+    title = "School Expenditures by Men",
+    x = "Expenditures (Men)",
+    y = "Number of Teams"
+  ) +
+  coord_cartesian(xlim = c(1000, NA)) +
+  theme_minimal()
+```
+\newpage
+
+### 1. c.
+
+```{r q1-c}
+sports |>
+  count(classification_name) |>
+  nrow()
+```
+There are 19 observations in classification_name
+\newpage
+
+### 1. d.
+
+```{r q1-d}
+d1_fbs <- sports |> filter(classification_name == "NCAA Division I-FBS")
+d1_fbs |> glimpse()
+```
+\newpage
+
+### 1. e.
+
+```{r q1-e}
+d1_fbs |> 
+  count(institution_name) |>
+  nrow()
+```
+There are 130 schools in NCAA FBS-Division I.
+\newpage
+
+### 1. f.
+
+```{r q1-f}
+d1_fbs |>
+  ggplot() +
+  geom_point(aes(exp_men, rev_men, color = "Men"), na.rm = TRUE) +
+  geom_point(aes(exp_women, rev_women, color = "Women"), na.rm = TRUE) +
+  scale_x_continuous(
+    name = "Expenditures",
+    labels = label_dollar(suffix = "M", scale = 1e-6)
+  ) +
+  scale_y_continuous(
+    name = "Revenues",
+    labels = label_dollar(suffix = "M", scale = 1e-6)
+  ) +
+  labs(
+    title = "Expenditures and Revenues compared in D1 FBS Schools"
+  )
+```
+From this graphic, we can clearly see that there is significantly higher expenditure and revenue in men's Division 1 FBS schools. It it also clear that there is a positive relationship between expenditures, and revenue.
+\newpage
+
+### 1. g.
+
+```{r q1-g}
+```
+General trend: The scatterplot shows a strong positive relationship between expenditures and revenues among D1 FBS programs and it is clear that schools that spend more tend to earn more.
+
+Local Behavior: Most schools are grouped in the $0.1M – $5M expenditure range. and there is significant overplotting in this region. Once you reach more than $20M in expenditures, and more than $50M in revenues, the plot becomes much more clear. Small schools cluster near the origin, while some larger schools have very high revenue and very high expenditure.
+
+Outliers: You can see that there are only a few schools outside of the $60M expenditures range, and only one school with more than $150M in revenue. Despite this, these points still follow the general trend of high reveneue leading to high expenditure, and there are no outliers in this graphic.
+
+\newpage
+
+### 1. h.
+
+```{r q1-h}
+d1_fbs |>
+  filter(
+    state_cd == "TX",
+    sports == "Football"
+  ) |>
+  ggplot(aes(rev_men, reorder(institution_name, rev_men))) +
+  geom_jitter(height = .1, size = 1) +
+  scale_x_continuous(
+    labels = label_dollar(suffix = "M", scale = 1e-6)
+  ) +
+  labs(
+    title = "Football Revenues for Texas D1 FBS Schools",
+    subtitle = "2015-2019",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 7),
+    axis.text.y = element_text(size = 7)
+  )
+```
+For question 1.h. I used ChatGPT5 to help me change the x and y axis element font size, allowing for more room for the actual graphic when rendering. Also, the $160M was slightly cut off, so I lowered the font size so everything fits better and looks more presentable.
+\newpage
+
+### 1. i.
+
+```{r q1-i}
+d1_fbs |>
+  filter(
+    state_cd == "TX", 
+    sports == "Football"
+  ) |>
+  mutate(net_return = rev_men / exp_men - 1) |>
+  ggplot(aes(net_return, reorder(institution_name, net_return))) +
+  geom_col(alpha = 0.8) +
+  scale_x_continuous(
+    labels = label_percent(accuracy = 1),
+  ) +
+  labs(
+    title = "Net Return on Football Programs",
+    x = NULL, y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 7),
+    axis.text.y = element_text(size = 7)
+  )
+```
+The schools that "make money" on football appear to be The University of Texas, Texas Tech, Texas A&M, Texas Christian University, Baylor, UT at El Paso, and University of North Texas.
+
+For question 1.i. I used ChatGPT5 to help me with two things: First was changing from geom_jitter to geom_col, I explained to ChatGPT that I did not like the appearance of the plot when geom_jitter was applied, to which it recommended using geom_col. Second, I needed help with how to use label_percent and understand what accuracy did. ChatGPT Helped me format the gome_col, and where and how to implement label_percent.

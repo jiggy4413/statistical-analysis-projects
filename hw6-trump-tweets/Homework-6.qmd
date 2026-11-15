@@ -1,0 +1,188 @@
+---
+format:
+  pdf:
+    fig-pos: 'h!'
+execute:
+  echo: true
+  cache: false
+  error: true
+  fig-height: 2.75
+knitr:
+  opts_chunk: 
+    fig-format: pdf
+    collapse: true
+    comment: "#"
+---
+
+JIMV
+
+TRUMPS PUBLIC TWEET - ANALYSIS
+
+\begin{center}
+Homework 6
+\end{center}
+
+
+## Load required packages
+
+This document uses the following R packages and environment setup.
+
+```{r packages}
+#| echo: true
+#| message: false
+library("tidyverse"); library("patchwork");library("dplyr");library("ggplot2")
+library("scales"); library("glue");library("janitor");library("stringr")
+library("mall");library("hms")
+theme_set(theme_minimal())
+theme_update(panel.grid.minor = element_blank())
+```
+
+<!-- below is how you put in a page break -->
+
+\newpage
+
+## Question 1
+
+### 1. a.
+
+```{r q1-a}
+tweets <- read_rds("dt_tweets.rds")
+tweets |> select(1:4) |> glimpse()
+```
+
+### 1. b.
+
+```{r q1-b}
+tweets |> 
+  ggplot(aes(x = nchar(text))) +
+  geom_histogram(bins = 100) +
+  geom_vline(xintercept = 280, linetype = "dashed", color = "red")
+```
+From what we can see in the histogram, it appears that President Trump has managed to tweet above the 280 character limit. This is indeed very strange. The red dashed line (geom_vline) indicates where the 280 mark sits at.
+\newpage
+
+### 1. c.
+
+```{r q1-c}
+tweets |>
+  ggplot(aes(hms::as_hms(created_at))) +
+  geom_histogram(bins = 80, boundary = 0) +
+  labs(x = "Time of Day", y = "Tweet Count") +
+  scale_x_time(
+    breaks = hms::hms(hours = seq(0, 24, 2)),
+    labels = function(t) strftime(t, "%I%p") |>
+    str_remove("0(?<=\\d)") |>
+      str_to_lower()
+  )
+```
+\newpage
+
+### 1. d.
+
+```{r q1-d}
+tweets |>
+  dplyr::pull(text) |>
+  str_extract_all("@[A-Za-z0-9_]{1,15}") |>
+  flatten_chr() |>
+  (\(.) tibble(accounts = .))() |>
+  count(accounts, sort = TRUE) |>
+  
+print(n = 20)
+```
+\newpage
+
+### 1. e.
+```{r q1-e}
+tweets |>
+  arrange(desc(favorite_count)) |>
+  slice_head(n = 15) |>
+  (\(.) tibble(
+      favorites = dplyr::pull(., favorite_count),
+      text = str_wrap(dplyr::pull(., text))
+  ))() |>
+  
+print(n = 15)
+```
+For part 1.e. I used ChatGPT5 to help me arrange and slice the columns before printing. I was struggling to output the tweets in order from most-liked to least-liked. That is where ChatGPT explained to me how to implement those to lines of code to then pull the columns and print them.
+\newpage
+
+### 1. f.
+```{r q1-f}
+tweets <- tweets |>
+mutate(
+"is_retweet" = map_lgl(retweeted_status, ~ !is.na(.x$created_at))
+)
+tweets |>
+select(created_at, is_retweet, is_quote_status, text) |>
+  
+print(n = 20)
+```
+The code inside the mutate() call is used to create a new variable inside the dataset. It adds a logical column called is_retweet that tells us whether each tweet is a retweet.
+\newpage
+
+### 1. g.
+```{r q1-g}
+tweets |>
+  filter(is_retweet) |>
+  dplyr::pull(text) |>
+  str_extract_all("(?<=RT )@[A-Za-z0-9_]{1,15}") |>
+  flatten_chr() |>
+  (\(.) tibble(accounts = .))() |>
+  count(accounts, sort = TRUE) |>
+
+print(n = 10)
+```
+Trump appears to have retweeted himself the most.
+
+For this question I essentially used the code from part 1.d. with small modifications to the code. I used ChatGPT5 to help me filter by is_retweet and with adding '(?<=RT )'.
+\newpage
+
+### 1. h.
+```{r q1-h, cache=TRUE, message=FALSE, warning=FALSE}
+#model:llama3.2:1b downloaded from https://ollama.com/download/mac
+# Sentiments Vector
+sentiments <- c("very positive", "positive", "neutral", "negative", "very negative") 
+
+# Run sentiment analysis on all tweets
+tweets_sentiments <- llm_sentiment(
+  tweets,
+  text,
+  options = sentiments
+)
+
+# 5 very positive tweets
+tweets_sentiments |>
+  filter(.sentiment == "very positive") |> # filter by positive
+  slice_sample(n = 5) |> # slice sample by 5 for 5 results
+  select(text, .sentiment) # select text and sentiment columns
+
+# 5 very negative tweets
+tweets_sentiments |>
+  filter(.sentiment == "very negative") |> # filter by negative
+  slice_sample(n = 5) |> # slice sample by 5 for 5 results
+  select(text, .sentiment) # select text and sentiment columns
+```
+
+
+For questions 1.h. I used ChatGPT5 to help me install ollama and to help me with the general syntax of the problem. It was very complicated trying to figure out what syntax to use depending on what version of mall I am using. ChatCPT helped with typing "llm_sentiments" into console to find the correct syntax, and then helped with with writing the code in general. The code we produced in class was a great help and starting place. It also helped me with setting cache=TRUE, message=FALSE, and warning=FALSE to help with rendering speeds and cleaning up the output.
+\newpage
+
+### 1. i.
+```{r q1-i}
+tweet_prop <- tweets_sentiments |>
+  count(.sentiment) |> # frequency of sentiments
+  mutate(proportion = n / sum(n)) # calculate proportion
+
+# bar chart with geom_col
+tweet_prop |>
+  ggplot(aes(x = .sentiment, y = proportion)) +
+  geom_col(fill = "steelblue") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Proportion of Tweets by Sentiment Category",
+    x = "Sentiment",
+    y = "Proportion of Tweets"
+  ) +
+  theme_minimal()
+```
+For question 1.i. I used ChatGPT5 to help me with percent format and with creating tweet_prop, specifically with how to find frequency of sentiments and how to calculate the proportion for each sentiment.

@@ -1,0 +1,129 @@
+---
+format:
+  pdf:
+    fig-pos: 'h!'
+execute:
+  echo: true
+  cache: false
+  error: true
+  fig-height: 2.75
+knitr:
+  opts_chunk: 
+    fig-format: pdf
+    collapse: true
+    comment: "#"
+---
+
+Juan Ignacio Mendez Valdez
+
+STA 4373/5373 - Computational Methods in Statistics
+
+\begin{center}
+Homework 5
+\end{center}
+
+
+## Load required packages
+
+This document uses the following R packages and environment setup.
+
+```{r packages}
+#| echo: true
+#| message: false
+library("tidyverse"); library("patchwork");library("dplyr");library("ggplot2")
+library("scales"); library("glue");library("janitor");library("stringr")
+theme_set(theme_minimal())
+theme_update(panel.grid.minor = element_blank())
+```
+
+<!-- below is how you put in a page break -->
+
+\newpage
+
+## Question 1
+
+### 1. a.
+
+```{r q1-a}
+new_cases_file <- "TexasCOVID-19NewCasesOverTimebyCounty.xlsx"
+new_cases <- readxl::read_xlsx(
+  path = new_cases_file,
+  range = readxl::cell_limits(
+    ul = c(3,1),
+    lr = c(257,NA)
+  )
+)
+
+new_cases |> select(1:5) |> glimpse()
+```
+
+### 1. b.
+
+```{r q1-b}
+new_cases2 <- new_cases |>
+  janitor::clean_names() |>
+  rename_with(~ str_remove(., "^new_cases_"))
+
+new_cases2 |> select(1:5) |> glimpse()
+```
+\newpage
+
+### 1. c.
+
+```{r q1-c}
+new_cases3 <- new_cases2 |>
+  mutate(
+    across(-county, as.integer)
+  )
+
+new_cases3 |> select(1:5) |> glimpse()
+```
+\newpage
+
+### 1. d.
+
+```{r q1-d}
+mclennan_cases <- new_cases3 |>
+  dplyr::filter(county == "McLennan")
+
+mclennan_cases_long <- tibble(
+  date = names(mclennan_cases)[-1],
+  new_cases = as.matrix(mclennan_cases)[1,-1]
+)
+
+mclennan_cases |> select(1:5) |> glimpse()
+
+mclennan_cases_long |> slice(1:5)
+```
+\newpage
+
+### 1. e.
+```{r q1-e}
+mclennan_cases_long <- mclennan_cases_long |>
+  dplyr::mutate(
+    date = mdy(date),
+    new_cases = as.integer(new_cases)
+  )
+
+mclennan_cases_long
+```
+\newpage
+
+### 1. f.
+```{r q1-f}
+p <- mclennan_cases_long |>
+  ggplot(aes(x = date, y = new_cases)) + 
+  geom_line()
+p
+```
+\newpage
+
+### 1. g.
+```{r q1-g}
+mclennan_cases_long |>
+  group_by(
+    wday = lubridate::wday(date, label = TRUE, abbr = FALSE)
+  ) |>
+  summarise(avg_new_cases = mean(new_cases))
+```
+From the the averages of the results, we can see that the lowest two days are Sunday and Monday. While the highest two results are on Tuesday and Saturday. The low results at the start of the week could be due to lack of reporting over the weekend. While the peaks around mid-week and just before the weekend could be due to more data coming in just after the weekend and just before the weekend.
