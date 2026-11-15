@@ -10,8 +10,8 @@
 .RData
 .Ruserdata
 
-# HW7 caches (rebuilt on first run; SP500_prices.rds exceeds GitHub's 100 MB limit)
-hw7-apple-stock/SP500.rds
-hw7-apple-stock/SP500_prices.rds
+# apple-stock caches (rebuilt on first run; SP500_prices.rds exceeds GitHub's 100 MB limit)
+apple-stock/SP500.rds
+apple-stock/SP500_prices.rds
 
 .DS_Store
